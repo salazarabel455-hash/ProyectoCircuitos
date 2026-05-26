@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Medidor de Energía</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;800&display=swap');
+
+  :root {
+    --bg:       #0a0e1a;
+    --panel:    #0f1628;
+    --border:   #1e3a5f;
+    --accent:   #00d4ff;
+    --accent2:  #00ff88;
+    --accent3:  #ff6b35;
+    --accent4:  #a855f7;
+    --text:     #e2f0ff;
+    --muted:    #4a6080;
+    --glow:     0 0 20px rgba(0,212,255,0.3);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Fondo animado */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 20%, rgba(0,212,255,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(0,255,136,0.04) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grid de líneas de fondo */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 42px; height: 42px;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    box-shadow: var(--glow);
+    animation: pulse-border 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse-border {
+    0%,100% { border-color: var(--accent); box-shadow: 0 0 20px rgba(0,212,255,0.3); }
+    50%      { border-color: var(--accent2); box-shadow: 0 0 20px rgba(0,255,136,0.3); }
+  }
+
+  .logo-text h1 {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .logo-text p {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+  }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent2);
+    animation: blink 1.5s ease-in-out infinite;
+  }
+
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0.2; }
+  }
+
+  .status-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--accent2);
+  }
+
+  .refresh-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .refresh-control select {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .refresh-control select:focus {
+    border-color: var(--accent);
+  }
+
+  /* CARDS DE VALORES EN TIEMPO REAL */
+  .values-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  @media (min-width: 600px) {
+    .values-grid { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  .value-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .value-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-color, var(--accent));
+    border-radius: 12px 12px 0 0;
+  }
+
+  .value-card:hover { border-color: var(--card-color, var(--accent)); }
+
+  .card-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .card-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 26px;
+    font-weight: 400;
+    color: var(--card-color, var(--accent));
+    line-height: 1;
+    margin-bottom: 4px;
+    transition: all 0.4s;
+  }
+
+  .card-unit {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .card-v  { --card-color: #00d4ff; }
+  .card-a  { --card-color: #00ff88; }
+  .card-w  { --card-color: #ff6b35; }
+  .card-wh { --card-color: #a855f7; }
+
+  /* GRÁFICAS */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) {
+    .charts-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+
+  .chart-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .chart-header {
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-family: 'Share Tech Mono', monospace;
+  }
+
+  .chart-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    border: 1px solid currentColor;
+  }
+
+  .badge-v  { color: #00d4ff; }
+  .badge-a  { color: #00ff88; }
+  .badge-w  { color: #ff6b35; }
+  .badge-wh { color: #a855f7; }
+
+  .chart-card iframe {
+    display: block;
+    width: 100%;
+    height: 200px;
+    border: none;
+    filter: invert(1) hue-rotate(180deg) saturate(0.8) brightness(0.9);
+  }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* Contador regresivo */
+  .countdown {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 60px;
+    text-align: right;
+  }
+
+  /* Animación de actualización */
+  @keyframes flash {
+    0%   { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+  .updated { animation: flash 0.5s ease-out; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚡</div>
+      <div class="logo-text">
+        <h1>Energy Monitor</h1>
+        <p>ESP32 · ACS712 · THINGSPEAK</p>
+      </div>
+    </div>
+    <div class="status-bar">
+      <div class="status-dot" id="dot"></div>
+      <span class="status-text" id="status-text">CONECTANDO...</span>
+      <div class="refresh-control">
+        <span>Refresco:</span>
+        <select id="refresh-select" onchange="cambiarRefresco(this.value)">
+          <option value="5">5 seg</option>
+          <option value="10">10 seg</option>
+          <option value="15" selected>15 seg</option>
+          <option value="30">30 seg</option>
+          <option value="60">1 min</option>
+        </select>
+      </div>
+      <span class="countdown" id="countdown">15s</span>
+    </div>
+  </header>
+
+  <!-- VALORES EN TIEMPO REAL -->
+  <div class="values-grid">
+    <div class="value-card card-v">
+      <div class="card-label">Voltaje</div>
+      <div class="card-value" id="val-v">—</div>
+      <div class="card-unit">Volts (V)</div>
+    </div>
+    <div class="value-card card-a">
+      <div class="card-label">Corriente</div>
+      <div class="card-value" id="val-a">—</div>
+      <div class="card-unit">Amperes (A)</div>
+    </div>
+    <div class="value-card card-w">
+      <div class="card-label">Potencia</div>
+      <div class="card-value" id="val-w">—</div>
+      <div class="card-unit">Watts (W)</div>
+    </div>
+    <div class="value-card card-wh">
+      <div class="card-label">Energía</div>
+      <div class="card-value" id="val-wh">—</div>
+      <div class="card-unit">Watt-hora (Wh)</div>
+    </div>
+  </div>
+
+  <!-- GRÁFICAS -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Voltaje</span>
+        <span class="chart-badge badge-v">V</span>
+      </div>
+      <iframe id="chart1"
+        src="https://thingspeak.com/channels/3393784/charts/1?bgcolor=%230f1628&color=%2300d4ff&dynamic=true&results=30&type=line&update=15&title=&xaxis=&yaxis=">
+      </iframe>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Corriente</span>
+        <span class="chart-badge badge-a">A</span>
+      </div>
+      <iframe id="chart2"
+        src="https://thingspeak.com/channels/3393784/charts/2?bgcolor=%230f1628&color=%2300ff88&dynamic=true&results=30&type=line&update=15&title=&xaxis=&yaxis=">
+      </iframe>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Potencia</span>
+        <span class="chart-badge badge-w">W</span>
+      </div>
+      <iframe id="chart3"
+        src="https://thingspeak.com/channels/3393784/charts/3?bgcolor=%230f1628&color=%23ff6b35&dynamic=true&results=30&type=line&update=15&title=&xaxis=&yaxis=">
+      </iframe>
+    </div>
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Energía acumulada</span>
+        <span class="chart-badge badge-wh">Wh</span>
+      </div>
+      <iframe id="chart4"
+        src="https://thingspeak.com/channels/3393784/charts/4?bgcolor=%230f1628&color=%23a855f7&dynamic=true&results=30&type=line&update=15&title=&xaxis=&yaxis=">
+      </iframe>
+    </div>
+  </div>
+
+  <footer>
+    CHANNEL ID: 3393784 &nbsp;·&nbsp; THINGSPEAK &nbsp;·&nbsp;
+    <span id="last-update">Esperando datos...</span>
+  </footer>
+
+</div>
+
+<script>
+  const CHANNEL_ID = '3393784';
+  const READ_KEY   = '';  // canal público, no necesita key
+
+  let intervalo    = 15;
+  let cuenta       = 15;
+  let timer        = null;
+  let timerCuenta  = null;
+
+  // ── Obtener último valor de ThingSpeak ──
+  async function fetchDatos() {
+    try {
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/feeds/last.json`;
+      const res = await fetch(url);
+      const d   = await res.json();
+
+      actualizar('val-v',  parseFloat(d.field1).toFixed(2));
+      actualizar('val-a',  parseFloat(d.field2).toFixed(3));
+      actualizar('val-w',  parseFloat(d.field3).toFixed(2));
+      actualizar('val-wh', parseFloat(d.field4).toFixed(4));
+
+      document.getElementById('status-text').textContent = 'EN LÍNEA';
+      document.getElementById('dot').style.background = '#00ff88';
+
+      const fecha = new Date(d.created_at);
+      document.getElementById('last-update').textContent =
+        'Último dato: ' + fecha.toLocaleTimeString('es-MX');
+
+    } catch(e) {
+      document.getElementById('status-text').textContent = 'SIN CONEXIÓN';
+      document.getElementById('dot').style.background = '#ff4444';
+    }
+  }
+
+  function actualizar(id, valor) {
+    const el = document.getElementById(id);
+    if (el.textContent !== valor) {
+      el.textContent = valor;
+      el.classList.remove('updated');
+      void el.offsetWidth;
+      el.classList.add('updated');
+    }
+  }
+
+  // ── Refrescar iframes de gráficas ──
+  function refrescarGraficas() {
+    [1,2,3,4].forEach(n => {
+      const iframe = document.getElementById('chart' + n);
+      const src    = iframe.src;
+      iframe.src   = '';
+      setTimeout(() => iframe.src = src, 100);
+    });
+  }
+
+  // ── Contador regresivo ──
+  function iniciarCuenta() {
+    clearInterval(timerCuenta);
+    cuenta = intervalo;
+    timerCuenta = setInterval(() => {
+      cuenta--;
+      document.getElementById('countdown').textContent = cuenta + 's';
+      if (cuenta <= 0) cuenta = intervalo;
+    }, 1000);
+  }
+
+  // ── Cambiar intervalo de refresco ──
+  function cambiarRefresco(seg) {
+    intervalo = parseInt(seg);
+    clearInterval(timer);
+    clearInterval(timerCuenta);
+    timer = setInterval(() => {
+      fetchDatos();
+      refrescarGraficas();
+    }, intervalo * 1000);
+    iniciarCuenta();
+  }
+
+  // ── Iniciar ──
+  fetchDatos();
+  cambiarRefresco(15);
+</script>
+</body>
+</html>
