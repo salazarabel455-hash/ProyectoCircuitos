@@ -455,16 +455,6 @@
     }
   }
 
-  // ── Refrescar iframes de gráficas ──
-  function refrescarGraficas() {
-    [1,2,3,4].forEach(n => {
-      const iframe = document.getElementById('chart' + n);
-      const src    = iframe.src;
-      iframe.src   = '';
-      setTimeout(() => iframe.src = src, 100);
-    });
-  }
-
   // ── Contador regresivo ──
   function iniciarCuenta() {
     clearInterval(timerCuenta);
@@ -477,13 +467,15 @@
   }
 
   // ── Cambiar intervalo de refresco ──
+  // Solo actualiza los valores numéricos — las gráficas
+  // se actualizan solas con dynamic=true, sin recargar el iframe
+  // y sin hacer scroll al inicio de la página
   function cambiarRefresco(seg) {
     intervalo = parseInt(seg);
     clearInterval(timer);
     clearInterval(timerCuenta);
     timer = setInterval(() => {
-      fetchDatos();
-      refrescarGraficas();
+      fetchDatos();   // solo números, sin tocar los iframes
     }, intervalo * 1000);
     iniciarCuenta();
   }
